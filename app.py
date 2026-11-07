@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import os
 
-# إعدادات صفحة التطبيق
 st.set_page_config(
     page_title="المستودع الرقمي لفطريات الجبل الأخضر",
     page_icon="🍄",
@@ -12,7 +11,6 @@ st.set_page_config(
 st.title("🍄 المستودع الرقمي لفطريات الجبل الأخضر")
 st.markdown("منصة توثيق وإدارة العينات الحقلية والمجهرية للفطريات الكبيرة.")
 
-# دالة قراءة ملف الـ CSV
 @st.cache_data
 def load_data():
     csv_file = "macrofungi_database_template.csv"
@@ -28,7 +26,6 @@ df = load_data()
 if df is not None:
     st.success("تم تحميل قاعدة البيانات بنجاح! 📊")
     
-    # مربع البحث السريع
     search_term = st.text_input("🔍 ابحثي عن اسم الفطر أو رقم العينة (Specimen_ID):")
     
     if search_term:
@@ -36,15 +33,12 @@ if df is not None:
     else:
         filtered_df = df
         
-    # عرض جدول البيانات
     st.dataframe(filtered_df, use_container_width=True)
     st.info(f"إجمالي العينات المعروضة: {len(filtered_df)}")
     
-    # قسم المعرض البصري والصور المرتبطة
     st.markdown("---")
     st.subheader("🖼️ المعرض البصري للعينات (صور الحقل والأبواغ)")
     
-    # التعرف على اسم عمود المعرف ديناميكياً
     id_col = None
     for col in df.columns:
         if 'specimen' in col.lower() or 'id' in col.lower():
@@ -59,26 +53,28 @@ if df is not None:
             st.write("تفاصيل العينة المحددة:")
             st.dataframe(matched_row, use_container_width=True)
             
-            # جمع كافة الصور من المجلد الرئيسي أو مجلد images
-            all_images = []
-            for root, dirs, files in os.walk("."):
-                # استبعاد مجلدات النظام مثل .git
-                if ".git" in root:
-                    continue
-                for f in files:
-                    if f.lower().endswith(('.jpg', '.jpeg', '.png')):
-                        all_images.append(os.path.join(root, f))
+            # البحث عن أعمدة الصور في جدول الـ CSV
+            image_cols = [c for c in df.columns if 'image' in c.lower() or 'photo' in c.lower() or 'img' in c.lower()]
+            displayed = False
             
-            # مطابقة اسم الصورة مع معرف العينة (مثال: SPEC-2026-AG-NA01 أو LY_739)
-            matched_images = [img for img in all_images if str(selected_specimen).lower() in os.path.basename(img).lower()]
-            
-            if matched_images:
-                st.write("الصور المرتبطة بهذه العينة:")
-                cols = st.columns(len(matched_images) if len(matched_images) <= 3 else 3)
-                for idx, img_path in enumerate(matched_images):
-                    with cols[idx % len(cols)]:
-                        st.image(img_path, caption=os.path.basename(img_path), use_container_width=True)
-            else:
-                st.warning(f"⚠️ تنبيه: لم يتم العثور على صور تحتوي على اسم المعرف ({selected_specimen}) في مجلدات المشروع. تأكدي من رفع الصور وتسميتها بحيث تتضمن رقم المعرف.")
+            if image_cols:
+                cols = st.columns(len(image_cols) if len(image_cols) <= 3 else 3)
+                for i, col_name in enumerate(image_cols):
+                    img_name = str(matched_row[col_name].values[0]).strip()
+                    if img_name and img_name.lower() not in ['nan', 'none', '']:
+                        # التحقق من وجود الصورة في المجلد الرئيسي أو مجلد images
+                        img_path = None
+                        if os.path.exists(img_name):
+                            img_path = img_name
+                        elif os.path.exists(os.path.join("images", img_name)):
+                            img_path = os.path.join("images", img_name)
+                            
+                        if img_path:
+                            with cols[i % len(cols)]:
+                                st.image(img_path, caption=f"{col_name}: {img_name}", use_container_width=True)
+                                displayed = True
+                                
+            if not displayed:
+                st.info("💡 ملاحظة: لعرض الصور، تأكدي من رفع ملفات الصور إلى المستودع وأن أسماءها مسجلة في أعمدة الصور بملف الـ CSV أو تحتوي على رقم المعرف.")
 else:
-    st.error("لم يتم العثور على ملف البيانات `macrofungi_database_template.csv` في المجلد الرئيسي. تأكدي من صحة اسم الملف ورفعه.")
+    st.error("لم يتم العثور على ملف البيانات `macrofungi_database_template.csv`.")
