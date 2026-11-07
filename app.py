@@ -12,17 +12,16 @@ st.set_page_config(
 st.title("🍄 المستودع الرقمي لفطريات الجبل الأخضر")
 st.markdown("منصة توثيق وإدارة العينات الحقلية والمجهرية للفطريات الكبيرة.")
 
-# دالة قراءة ملف الـ CSV مع دعم تجربة ترميزات متعددة لتجنب مشاكل الحروف العربية
+# دالة قراءة ملف الـ CSV مباشرة كما هو
 @st.cache_data
 def load_data():
     csv_file = "macrofungi_database_template.csv"
     if os.path.exists(csv_file):
-        for enc in ['utf-8-sig', 'cp1256', 'utf-8', 'latin1']:
-            try:
-                df = pd.read_csv(csv_file, encoding=enc)
-                return df
-            except Exception:
-                continue
+        try:
+            # قراءة الملف بالترميز الافتراضي المباشر
+            return pd.read_csv(csv_file)
+        except Exception:
+            return None
     return None
 
 df = load_data()
