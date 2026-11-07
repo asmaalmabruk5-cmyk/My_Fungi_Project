@@ -12,7 +12,7 @@ st.set_page_config(
 st.title("🍄 المستودع الرقمي لفطريات الجبل الأخضر")
 st.markdown("منصة توثيق وإدارة العينات الحقلية والمجهرية للفطريات الكبيرة.")
 
-# دالة قراءة ملف الـ CSV بالترميز الصحيح لضمان ظهور النصوص العربية بوضوح تام
+# دالة قراءة ملف الـ CSV بالترميز الاحترافي لضمان نقاء النصوص العربية
 @st.cache_data
 def load_data():
     csv_file = "macrofungi_database_template.csv"
@@ -61,32 +61,32 @@ if df is not None:
             st.write("تفاصيل العينة المحددة:")
             st.dataframe(matched_row, use_container_width=True)
             
-            # البحث عن أعمدة الصور في جدول الـ CSV
+            # --- الحل الهندسي الاحترافي للبحث عن الصور وتوليد مساراتها تلقائياً ---
             image_cols = [c for c in df.columns if any(term in c.lower() for term in ['image', 'photo', 'img', 'cap', 'spore'])]
+            
+            # بناء فهرس شامل لجميع ملفات المستودع تلقائياً وتجاوز اختلاف الحروف (Case-insensitive)
+            repo_files = {}
+            for root, dirs, files in os.walk("."):
+                if ".git" in root:
+                    continue
+                for f in files:
+                    repo_files[f.lower()] = os.path.join(root, f)
             
             displayed_images = []
             for col_name in image_cols:
                 val = str(matched_row[col_name].values[0]).strip()
                 if val and val.lower() not in ['nan', 'none', 'n/a', '']:
-                    if val.lower().endswith(('.jpg', '.jpeg', '.png')):
-                        displayed_images.append((col_name, val))
+                    target_key = val.lower()
+                    if target_key in repo_files:
+                        displayed_images.append((col_name, repo_files[target_key]))
             
             if displayed_images:
                 st.write("الصور المرتبطة بهذه العينة:")
                 cols = st.columns(len(displayed_images) if len(displayed_images) <= 3 else 3)
-                for idx, (col_type, img_filename) in enumerate(displayed_images):
-                    img_path = None
-                    if os.path.exists(img_filename):
-                        img_path = img_filename
-                    elif os.path.exists(os.path.join("images", img_filename)):
-                        img_path = os.path.join("images", img_filename)
-                        
-                    if img_path:
-                        with cols[idx % len(cols)]:
-                            st.image(img_path, caption=f"نوع الصورة: {col_type}", use_container_width=True)
-                    else:
-                        cols[idx % len(cols)].warning(f"⚠️ الصورة `{img_filename}` مسجلة في الجدول لكن تأكدي من رفعها لمستودع قيت هاب.")
+                for idx, (col_type, img_path) in enumerate(displayed_images):
+                    with cols[idx % len(cols)]:
+                        st.image(img_path, caption=f"نوع الصورة: {col_type}", use_container_width=True)
             else:
-                st.warning("⚠️ لا توجد أسماء صور مسجلة في أعمدة جدول البيانات لهذه العينة.")
+                st.warning("⚠️ تنبيه: أسماء الصور مسجلة في الجدول، لكن يبدو أن ملفاتها لم تُرفع بعد إلى مستودع قيت هاب. تأكدي من رفعها للمستودع وسيلتقطها الكود تلقائياً فوراً.")
 else:
     st.error("لم يتم العثور على ملف البيانات `macrofungi_database_template.csv` في المستودع.")
