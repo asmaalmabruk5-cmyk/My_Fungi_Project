@@ -2,21 +2,26 @@ import streamlit as st
 import pandas as pd
 import os
 
-# إعدادات الصفحة وواجهة العرض
-st.set_page_config(page_title="المستودع الرقمي لفطريات الجبل الأخضر", page_icon="🍄", layout="wide")
+# إعدادات صفحة التطبيق
+st.set_page_config(
+    page_title="المستودع الرقمي لفطريات الجبل الأخضر",
+    page_icon="🍄",
+    layout="wide"
+)
 
 st.title("🍄 المستودع الرقمي لفطريات الجبل الأخضر")
 st.markdown("منصة توثيق وإدارة العينات الحقلية والمجهرية للفطريات الكبيرة.")
 
-# دالة قراءة ملف الـ CSV مع دعم الترميز العربي المتعدد
+# دالة قراءة ملف الـ CSV مع دعم تجربة ترميزات متعددة لتجنب مشاكل الحروف العربية
 @st.cache_data
 def load_data():
     csv_file = "macrofungi_database_template.csv"
     if os.path.exists(csv_file):
-        for enc in ['utf-8-sig', 'utf-8', 'cp1256', 'latin1']:
+        for enc in ['utf-8-sig', 'cp1256', 'utf-8', 'latin1']:
             try:
-                return pd.read_csv(csv_file, encoding=enc)
-            except:
+                df = pd.read_csv(csv_file, encoding=enc)
+                return df
+            except Exception:
                 continue
     return None
 
@@ -33,62 +38,43 @@ if df is not None:
     else:
         filtered_df = df
         
-    # عرض الجدول كاملاً ومنسقاً
+    # عرض جدول البيانات
     st.dataframe(filtered_df, use_container_width=True)
     st.info(f"إجمالي العينات المعروضة: {len(filtered_df)}")
     
-    # قسم استعراض الصور المرتكز على العينات
+    # قسم المعرض البصري والصور المرتبطة
     st.markdown("---")
-    st.subheader("🖼️ المعرض البصري للعينات (صور الحقل والابواغ)")
+    st.subheader("🖼️ المعرض البصري للعينات (صور الحقل والأبواغ)")
     
-    if "Specimens_ID" in df.columns or "Specimen_ID" in df.columns:
-        id_col = "Specimen_ID" if "Specimen_ID" in df.columns else "Specimens_ID"
-        selected_specimen = st.selectbox("اختر رقم العينة لعرض صورها المجهرية والحقلية:", df[id_col].tolist())
+    # التعرف على اسم عمود المعرف ديناميكياً
+    id_col = None
+    for col in df.columns:
+        if 'specimen' in col.lower() or 'id' in col.lower():
+            id_col = col
+            break
+            
+    if id_col and not df.empty:
+        selected_specimen = st.selectbox("اختر رقم العينة لعرض تفاصيلها وصورها المجهرية:", df[id_col].tolist())
         
         if selected_specimen:
-            # البحث عن بادئة اسم الصورة المرتبطة بالعينة
             matched_row = df[df[id_col] == selected_specimen]
-            st.write(matched_row)
+            st.write("تفاصيل العينة المحددة:")
+            st.dataframe(matched_row, use_container_width=True)
             
-            # محاولة البحث عن الصور المطابقة في المجلد
+            # البحث عن الصور المطابقة في المجلد الرئيسي
             files_in_dir = os.listdir(".")
-            # استخراج اسم ملف مصغر أو البحث بالصور المتاحة
-            col1, col2, col3 = st.columns(3)
+            image_files = [f for f in files_in_dir if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
             
-            # عرض الصور التي تتطابق مع الاسم
-            found_images = [f for f in files_in_dir if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+            # مطابقة أجزاء اسم العينة مع أسماء الصور
+            matched_images = [img for img in image_files if str(selected_specimen).lower() in img.lower()]
             
-            # عرض توضيحي لطريقة جلب الصور
-            st.write("الصور المتاحة في المستودع لهذه العينة:")
-            for img in found_images:
-                if any(part.lower() in img.lower() for part in str(selected_specimen).split("-")):
-
-@st.cache_data
-def load_data():
-    csv_file = "macrofungi_database_template.csv"
-    if os.path.exists(csv_file):
-        # استخدام ترميز utf-8-sig المخصص لملفات الإكسل والمحفوظة كـ CSV لعرض العربية بوضوح
-        try:
-            return pd.read_csv(csv_file, encoding='utf-8-sig')
-        except:
-            return pd.read_csv(csv_file, encoding='cp1256')
-    return None@st.cache_data
-def load_data():
-    csv_file = "macrofungi_database_template.csv"
-    if os.path.exists(csv_file):
-        # تجربة الترميزات الخاصة باللغة العربية في ويندوز
-        for enc in ['cp1256', 'ansi', 'iso-8859-6', 'utf-8']:
-            try:
-                df = pd.read_csv(csv_file, encoding=enc)
-                return df
-            except:
-                continue
-    return None
-    
-
-
-                    
-                    st.image(img, caption=img, width=300)
-
+            if matched_images:
+                st.write("الصور المرتبطة بهذه العينة:")
+                cols = st.columns(len(matched_images) if len(matched_images) <= 3 else 3)
+                for idx, img_name in enumerate(matched_images):
+                    with cols[idx % len(cols)]:
+                        st.image(img_name, caption=img_name, use_container_width=True)
+            else:
+                st.warning("لا توجد صور مطابقة لهذا المعرف في المجلد حالياً.")
 else:
-    st.error("لم يتم العثور على ملف البيانات `macrofungi_database_template.csv` في المستودع. تأقدي من رفعه في المجلد الرئيسي.")
+    st.error("لم يتم العثور على ملف البيانات `macrofungi_database_template.csv` في المجلد الرئيسي. تأكدي من صحة اسم الملف ورفعه.")
