@@ -12,12 +12,12 @@ st.set_page_config(
 st.title("🍄 المستودع الرقمي لفطريات الجبل الأخضر")
 st.markdown("منصة توثيق وإدارة العينات الحقلية والمجهرية للفطريات الكبيرة.")
 
-# دالة قراءة ملف الـ CSV مع دعم الترميزات العربية
+# دالة قراءة ملف الـ CSV بالترميز الصحيح لضمان ظهور النصوص العربية بوضوح تام
 @st.cache_data
 def load_data():
     csv_file = "macrofungi_database_template.csv"
     if os.path.exists(csv_file):
-        for enc in ['utf-8-sig', 'cp1256', 'utf-8', 'latin1']:
+        for enc in ['utf-8-sig', 'cp1256', 'utf-8']:
             try:
                 df = pd.read_csv(csv_file, encoding=enc)
                 return df
@@ -61,7 +61,7 @@ if df is not None:
             st.write("تفاصيل العينة المحددة:")
             st.dataframe(matched_row, use_container_width=True)
             
-            # البحث عن أعمدة الصور في جدول الـ CSV (مثل Field_Image, Cap_Detail, Spore_Microscope_Image)
+            # البحث عن أعمدة الصور في جدول الـ CSV
             image_cols = [c for c in df.columns if any(term in c.lower() for term in ['image', 'photo', 'img', 'cap', 'spore'])]
             
             displayed_images = []
@@ -75,7 +75,6 @@ if df is not None:
                 st.write("الصور المرتبطة بهذه العينة:")
                 cols = st.columns(len(displayed_images) if len(displayed_images) <= 3 else 3)
                 for idx, (col_type, img_filename) in enumerate(displayed_images):
-                    # البحث عن الصورة في المجلد الرئيسي أو داخل مجلد images
                     img_path = None
                     if os.path.exists(img_filename):
                         img_path = img_filename
