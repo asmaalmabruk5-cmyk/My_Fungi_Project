@@ -61,7 +61,7 @@ if df is not None:
             st.write("تفاصيل العينة المحددة:")
             st.dataframe(matched_row, use_container_width=True)
             
-            # البحث عن الصور المطابقة في المجلد الرئيسي
+            # البحث عن الصور المطابقة في المجلد
             files_in_dir = os.listdir(".")
             image_files = [f for f in files_in_dir if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
             
