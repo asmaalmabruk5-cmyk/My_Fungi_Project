@@ -59,32 +59,30 @@ if df is not None:
             st.write("تفاصيل العينة المحددة:")
             st.dataframe(matched_row, use_container_width=True)
             
-            # جمع كل الصور المتاحة في المجلد الرئيسي أو مجلد images
-            all_image_paths = []
+            # استخراج أسماء الصور مباشرة من أعمدة جدول الـ CSV (البحث عن أعمدة تحتوي على image أو photo)
+            image_columns = [col for col in df.columns if 'image' in col.lower() or 'photo' in col.lower() or 'img' in col.lower()]
             
-            # البحث في المجلد الرئيسي
-            if os.path.exists("."):
-                for f in os.listdir("."):
-                    if f.lower().endswith(('.jpg', '.jpeg', '.png')):
-                        all_image_paths.append(f)
+            displayed_any_image = False
             
-            # البحث داخل مجلد images إذا كان موجوداً
-            images_dir = "images"
-            if os.path.exists(images_dir) and os.path.isdir(images_dir):
-                for f in os.listdir(images_dir):
-                    if f.lower().endswith(('.jpg', '.jpeg', '.png')):
-                        all_image_paths.append(os.path.join(images_dir, f))
-            
-            # تصفية الصور التي تتطابق مع معرف العينة المحدد
-            matched_images = [img for img in all_image_paths if str(selected_specimen).lower() in img.lower()]
-            
-            if matched_images:
-                st.write("الصور المرتبطة بهذه العينة:")
-                cols = st.columns(len(matched_images) if len(matched_images) <= 3 else 3)
-                for idx, img_path in enumerate(matched_images):
-                    with cols[idx % len(cols)]:
-                        st.image(img_path, caption=os.path.basename(img_path), use_container_width=True)
-            else:
-                st.warning(f"⚠️ تنبيه: لم يتم العثور على صور مطابقة للمعرف ({selected_specimen}) في المجلدات. تأكدي أن اسم ملف الصورة يحتوي على رقم المعرف تماماً.")
+            if image_columns:
+                cols = st.columns(len(image_columns) if len(image_columns) <= 3 else 3)
+                for i, col_name in enumerate(image_columns):
+                    img_filename = str(matched_row[col_name].values[0]).strip()
+                    
+                    if img_filename and img_filename.lower() != 'nan' and img_filename.lower() != 'none':
+                        # البحث عن الصورة في المجلد الرئيسي أو داخل مجلد images
+                        img_path = None
+                        if os.path.exists(img_filename):
+                            img_path = img_filename
+                        elif os.path.exists(os.path.join("images", img_filename)):
+                            img_path = os.path.join("images", img_filename)
+                            
+                        if img_path:
+                            with cols[i % len(cols)]:
+                                st.image(img_path, caption=f"{col_name}: {img_filename}", use_container_width=True)
+                                displayed_any_image = True
+                                
+            if not displayed_any_image:
+                st.warning("⚠️ تنبيه: لم يتم تسجيل أسماء الصور بدقة في أعمدة جدول الـ CSV لهذه العينة، أو أن ملفات الصور غير موجودة في المجلد.")
 else:
     st.error("لم يتم العثور على ملف البيانات `macrofungi_database_template.csv` في المجلد الرئيسي. تأكدي من صحة اسم الملف ورفعه.")
