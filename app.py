@@ -64,30 +64,29 @@ if df is not None:
             # استخراج أعمدة الصور من جدول الـ CSV
             image_cols = [c for c in df.columns if any(term in c.lower() for term in ['image', 'photo', 'img', 'cap', 'spore'])]
             
-            # بناء فهرس ذكي لملفات المستودع مع التعامل المرن مع الامتدادات المزدوجة مثل .jpg.jpeg
-            repo_files = {}
-            for root, dirs, files in os.walk("."):
-                if ".git" in root:
-                    continue
-                for f in files:
-                    clean_name = f.lower().replace('.jpeg', '').replace('.jpg', '')
-                    repo_files[clean_name] = os.path.join(root, f)
+            # مطابقة ذكية وشاملة لأسماء الملفات بصرف النظر عن الامتداد
+            repo_files = os.listdir(".")
             
             displayed_images = []
             for col_name in image_cols:
                 val = str(matched_row[col_name].values[0]).strip()
                 if val and val.lower() not in ['nan', 'none', 'n/a', '']:
-                    target_clean = val.lower().replace('.jpeg', '').replace('.jpg', '')
-                    if target_clean in repo_files:
-                        displayed_images.append((col_name, repo_files[target_clean]))
+                    # تنظيف اسم الملف من الامتداد الأساسي للبحث عنه
+                    base_val = val.lower().replace('.jpg', '').replace('.jpeg', '')
+                    
+                    # البحث في ملفات المستودع عن ملف يبدأ بهذا الاسم الأساسي
+                    matched_file = next((f for f in repo_files if base_val in f.lower() and f.lower().endswith(('.jpg', '.jpeg', '.png'))), None)
+                    
+                    if matched_file:
+                        displayed_images.append((col_name, matched_file))
             
             if displayed_images:
                 st.write("الصور المرتبطة بهذه العينة:")
                 cols = st.columns(len(displayed_images) if len(displayed_images) <= 3 else 3)
-                for idx, (col_type, img_path) in enumerate(displayed_images):
+                for idx, (col_type, img_filename) in enumerate(displayed_images):
                     with cols[idx % len(cols)]:
-                        st.image(img_path, caption=f"نوع الصورة: {col_type}", use_container_width=True)
+                        st.image(img_filename, caption=f"نوع الصورة: {col_type}", use_container_width=True)
             else:
-                st.warning("⚠️ تنبيه: لم يتم مطابقة أسماء الصور مع الملفات المرفوعة. تأكدي من تطابق أسماء الملفات في الجدول مع ما تم رفعه.")
+                st.warning("⚠️ تنبيه: لم يتم العثور على صور مطابقة في المستودع لهذه العينة.")
 else:
     st.error("لم يتم العثور على ملف البيانات `macrofungi_database_template.csv` في المستودع.")
