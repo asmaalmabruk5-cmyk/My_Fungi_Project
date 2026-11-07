@@ -1,112 +1,93 @@
-import streamlit as st
-import pandas as pd
 import os
+import pandas as pd
+import streamlit as st
 
 # ضبط إعدادات الصفحة
 st.set_page_config(
-    page_title="المستودع الرقمي لفطريات الجبل الأخضر - ليبيا",
+    page_title="المستودع الرقمي لفطريات الجبل الأخضر",
     page_icon="🍄",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-# عنوان التطبيق والمقدمة
-st.title("🍄 المستودع الرقمي التوثيقي لفطريات الجبل الأخضر (ليبيا)")
-st.markdown("""
-**إعداد وتوثيق:** أ. أسماء المبروك عبد السيد  
-*مركز البحوث الزراعية والحيوانية - البيضاء، ليبيا*
----
-""" )
+# عنوان التطبيق
+st.title("🍄 المستودع الرقمي لفطريات الجبل الأخضر")
+st.markdown("---")
 
-# اسم ملف الإكسل ومجلد الصور
-EXCEL_FILE = "macrofungi_database_template.xlsx"
-IMAGE_DIR = "images"
-
-# التحقق من وجود ملف الإكسل
-if not os.path.exists(EXCEL_FILE):
-    st.error(f"❌ لم يتم العثور على ملف البيانات `{EXCEL_FILE}`! يرجى التأكد من وضعه في المجلد الرئيسي.")
-    st.stop()
-
-# قراءة البيانات
+# دالة لقراءة قاعدة البيانات من الإكسل أو CSV
 @st.cache_data
 def load_data():
-    return pd.read_excel(EXCEL_FILE)
+    # البحث عن ملف البيانات سواء كان xlsx أو csv
+    for file in os.listdir("."):
+        if file.endswith(".xlsx"):
+            return pd.read_excel(file)
+        elif file.endswith(".csv"):
+            return pd.read_csv(file)
+    return None
 
 df = load_data()
 
-# شريط البحث والتصفية في القائمة الجانبية
-st.sidebar.header("🔍 تصفية العينات المعشبية")
-search_term = st.sidebar.text_input("بحث برقم العينة أو الاسم العلمي:", "")
-family_filter = st.sidebar.multiselect(
-    "تصفية حسب العائلة / المجموعة:",
-    options=df["Family_Or_Group"].unique() if "Family_Or_Group" in df.columns else [],
-    default=[]
-)
-
-# تصفية البيانات
-filtered_df = df.copy()
-
-if search_term:
-    filtered_df = filtered_df[
-        filtered_df["Specimen_ID"].astype(str).str.contains(search_term, case=False) |
-        filtered_df["Scientific_Name"].astype(str).str.contains(search_term, case=False) |
-        filtered_df["Arabic_Name"].astype(str).str.contains(search_term, case=False)
-    ]
-
-if family_filter:
-    filtered_df = filtered_df[filtered_df["Family_Or_Group"].isin(family_filter)]
-
-st.sidebar.markdown(f"**عدد العينات المعروضة:** `{len(filtered_df)}` من أصل `{len(df)}`")
-
-# عرض العينات
-if filtered_df.empty:
-    st.warning("⚠️ لا توجد عينات تطابق خيارات البحث الحالية.")
+if df is None:
+    st.error("لم يتم العثور على ملف قاعدة البيانات (الإكسل أو CSV) في المجلد الرئيسي!")
 else:
-    for idx, row in filtered_df.iterrows():
-        with st.expander(f"📌 **[{row['Specimen_ID']}]** - *{row['Scientific_Name']}* ({row['Arabic_Name']})", expanded=True):
-            col_info, col_img = st.columns([1.2, 1])
+    # القائمة الجانبية لاختيار الفطر
+    st.sidebar.header("🔍 البحث والتصفية")
+    species_list = df['Scientific_Name'].dropna().unique()
+    selected_species = st.sidebar.selectbox("اختر الفطر:", species_list)
+    
+    # تصفية البيانات الخاصة بالفطر المختار
+    row = df[df['Scientific_Name'] == selected_species].iloc[0]
+    
+    # عرض البيانات والتفاصيل في العمود الأيسر، والصور في العمود الأيمن
+    col_info, col_img = st.columns([1, 1])
+    
+    with col_info:
+        st.subheader(f"🌱 {row.get('Scientific_Name', 'اسم غير معروف')}")
+        if 'Arabic_Name' in row and pd.notna(row['Arabic_Name']):
+            st.markdown(f"**الاسم العربي / المحلي:** {row['Arabic_Name']}")
+        
+        st.markdown(f"**الموقع والجغرافيا:** `{row.get('Coordinates', 'غير محدد')}`")
+        st.markdown(f"**تاريخ الجمع:** `{row.get('Collection_Date', 'غير محدد')}`")
+        st.markdown(f"**التقييم والسمية:** `{row.get('Edibility_Status', 'غير محدد')}`")
+        
+        st.markdown("---")
+        st.markdown("#### 🔬 الصفات المورفولوجية والمجهرية")
+        
+        # الأسطر المصححة بالكامل لتفادي خطأ f-string
+        field_traits = row.get('Field_And_Macro_Traits', 'لا توجد بيانات')
+        micro_traits = row.get('Microscopic_And_Spore_Traits', 'لا توجد بيانات')
+        
+        st.info(f"**الصفات الظاهرية والميدانية:** {field_traits}")
+        st.success(f"**الفحص المجهري والأبواغ:** {micro_traits}")
+        
+    with col_img:
+        st.markdown("#### 📷 التوثيق الفوتوغرافي والمجهري")
+        
+        # إنشاء التبويبات الثلاث للصور
+        tab1, tab2, tab3 = st.tabs(["🖼️ العينة الميدانية", "🔍 تفاصيل الغطاء", "🔬 الأبواغ المجهرية"])
+        
+        # تحديد أسماء الصور القياسية بناءً على الاسم العلمي
+        base_name = str(row.get('Image_Base_Name', '')).strip()
+        if not base_name:
+            base_name = str(row.get('Scientific_Name', '')).strip().lower().replace(' ', '_')
             
-            with col_info:
-                st.markdown(f"### 🧪 **بيانات العينة والمعشبة**")
-                st.markdown(f"* **الاسم العلمي:** *{row['Scientific_Name']}*")
-                st.markdown(f"* **الاسم العربي / الشائع:** {row['Arabic_Name']}")
-                st.markdown(f"* **العائلة / المجموعة:** `{row['Family_Or_Group']}`")
-                st.markdown(f"* **الموقع:** {row['Location']}")
-                if pd.notna(row.get('Coordinates')) and str(row.get('Coordinates')) != "N/A":
-                    st.markdown(f"* **الإحداثيات الجغرافية:** `{row['Coordinates']}`")
-                st.markdown(f"* **تاريخ الجمع:** `{row['Collection_Date']}`")
-                st.markdown(f"* **التقييم والسمية:** `{row['Edibility_Status']}`")
+        field_img_path = os.path.join("images", f"{base_name}_field.jpg")
+        cap_img_path = os.path.join("images", f"{base_name}_cap.jpg")
+        spores_img_path = os.path.join("images", f"{base_name}_spores.jpg")
+        
+        with tab1:
+            if os.path.exists(field_img_path):
+                st.image(field_img_path, caption="الصورة الميدانية الحقلية", use_column_width=True)
+            else:
+                st.warning("الصورة الميدانية غير متوفرة حالياً.")
                 
-                st.markdown("---")
-                st.markdown("#### 🔬 **الصفات المورفولوجية والمجهرية**")
-                st.info(f"**الصفات الظاهرية والميدانية:**
-
-{row['Field_And_Macro_Traits']}")
-                st.success(f"**الفحص المجهري والأبواغ:**
-
-{row['Microscopic_And_Spore_Traits']}")
-
-            with col_img:
-                st.markdown("### 📸 **التوثيق الفوتوغرافي والمعشبي**")
-                tab1, tab2, tab3 = st.tabs(["🖼️ العينة الميدانية", "🔍 تفاصيل الغطاء", "🔬 الأبواغ المجهرية"])
+        with tab2:
+            if os.path.exists(cap_img_path):
+                st.image(cap_img_path, caption="تفاصيل الثمرة / الغطاء", use_column_width=True)
+            else:
+                st.warning("صورة الغطاء غير متوفرة حالياً.")
                 
-                # وظيفة مسبقة لعرض الصورة والتأكد من وجودها
-                def show_specimen_image(img_name, caption):
-                    if pd.notna(img_name):
-                        img_path = os.path.join(IMAGE_DIR, str(img_name).strip())
-                        if os.path.exists(img_path):
-                            st.image(img_path, caption=caption, use_container_width=True)
-                        else:
-                            st.warning(f"📷 صورة غير متوفرة: `{img_name}` في مجلد images")
-                    else:
-                        st.caption("لا توجد صورة مسجلة.")
-
-                with tab1:
-                    show_specimen_image(row.get('Field_Image'), f"العينة الميدانية - {row['Specimen_ID']}")
-                with tab2:
-                    show_specimen_image(row.get('Cap_Detail_Image'), f"تفاصيل الغطاء والساق - {row['Specimen_ID']}")
-                with tab3:
-                    show_specimen_image(row.get('Spore_Microscope_Image'), f"الفحص المجهري والأبواغ - {row['Specimen_ID']}")
-
-st.markdown("---")
-st.caption("Developed for Mycological Taxonomy Research © 2026 Asma Almabrok | Agricultural Research Center")
+        with tab3:
+            if os.path.exists(spores_img_path):
+                st.image(spores_img_path, caption="الفحص المجهري للأبواغ", use_column_width=True)
+            else:
+                st.warning("صورة الأبواغ المجهرية غير متوفرة حالياً.")
