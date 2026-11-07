@@ -12,13 +12,12 @@ st.set_page_config(
 st.title("🍄 المستودع الرقمي لفطريات الجبل الأخضر")
 st.markdown("منصة توثيق وإدارة العينات الحقلية والمجهرية للفطريات الكبيرة.")
 
-# دالة قراءة ملف الـ CSV مباشرة كما هو
+# دالة قراءة ملف الـ CSV
 @st.cache_data
 def load_data():
     csv_file = "macrofungi_database_template.csv"
     if os.path.exists(csv_file):
         try:
-            # قراءة الملف بالترميز الافتراضي المباشر
             return pd.read_csv(csv_file)
         except Exception:
             return None
@@ -60,20 +59,32 @@ if df is not None:
             st.write("تفاصيل العينة المحددة:")
             st.dataframe(matched_row, use_container_width=True)
             
-            # البحث عن الصور المطابقة في المجلد
-            files_in_dir = os.listdir(".")
-            image_files = [f for f in files_in_dir if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+            # جمع كل الصور المتاحة في المجلد الرئيسي أو مجلد images
+            all_image_paths = []
             
-            # مطابقة أجزاء اسم العينة مع أسماء الصور
-            matched_images = [img for img in image_files if str(selected_specimen).lower() in img.lower()]
+            # البحث في المجلد الرئيسي
+            if os.path.exists("."):
+                for f in os.listdir("."):
+                    if f.lower().endswith(('.jpg', '.jpeg', '.png')):
+                        all_image_paths.append(f)
+            
+            # البحث داخل مجلد images إذا كان موجوداً
+            images_dir = "images"
+            if os.path.exists(images_dir) and os.path.isdir(images_dir):
+                for f in os.listdir(images_dir):
+                    if f.lower().endswith(('.jpg', '.jpeg', '.png')):
+                        all_image_paths.append(os.path.join(images_dir, f))
+            
+            # تصفية الصور التي تتطابق مع معرف العينة المحدد
+            matched_images = [img for img in all_image_paths if str(selected_specimen).lower() in img.lower()]
             
             if matched_images:
                 st.write("الصور المرتبطة بهذه العينة:")
                 cols = st.columns(len(matched_images) if len(matched_images) <= 3 else 3)
-                for idx, img_name in enumerate(matched_images):
+                for idx, img_path in enumerate(matched_images):
                     with cols[idx % len(cols)]:
-                        st.image(img_name, caption=img_name, use_container_width=True)
+                        st.image(img_path, caption=os.path.basename(img_path), use_container_width=True)
             else:
-                st.warning("لا توجد صور مطابقة لهذا المعرف في المجلد حالياً.")
+                st.warning(f"⚠️ تنبيه: لم يتم العثور على صور مطابقة للمعرف ({selected_specimen}) في المجلدات. تأكدي أن اسم ملف الصورة يحتوي على رقم المعرف تماماً.")
 else:
     st.error("لم يتم العثور على ملف البيانات `macrofungi_database_template.csv` في المجلد الرئيسي. تأكدي من صحة اسم الملف ورفعه.")
