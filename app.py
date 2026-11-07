@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 
+# إعدادات صفحة التطبيق
 st.set_page_config(
     page_title="المستودع الرقمي لفطريات الجبل الأخضر",
     page_icon="🍄",
@@ -11,14 +12,17 @@ st.set_page_config(
 st.title("🍄 المستودع الرقمي لفطريات الجبل الأخضر")
 st.markdown("منصة توثيق وإدارة العينات الحقلية والمجهرية للفطريات الكبيرة.")
 
+# دالة قراءة ملف الـ CSV مع دعم الترميزات العربية
 @st.cache_data
 def load_data():
     csv_file = "macrofungi_database_template.csv"
     if os.path.exists(csv_file):
-        try:
-            return pd.read_csv(csv_file)
-        except Exception:
-            return None
+        for enc in ['utf-8-sig', 'cp1256', 'utf-8', 'latin1']:
+            try:
+                df = pd.read_csv(csv_file, encoding=enc)
+                return df
+            except Exception:
+                continue
     return None
 
 df = load_data()
@@ -26,6 +30,7 @@ df = load_data()
 if df is not None:
     st.success("تم تحميل قاعدة البيانات بنجاح! 📊")
     
+    # مربع البحث السريع
     search_term = st.text_input("🔍 ابحثي عن اسم الفطر أو رقم العينة (Specimen_ID):")
     
     if search_term:
@@ -33,12 +38,15 @@ if df is not None:
     else:
         filtered_df = df
         
+    # عرض جدول البيانات
     st.dataframe(filtered_df, use_container_width=True)
     st.info(f"إجمالي العينات المعروضة: {len(filtered_df)}")
     
+    # قسم المعرض البصري والصور المرتبطة
     st.markdown("---")
     st.subheader("🖼️ المعرض البصري للعينات (صور الحقل والأبواغ)")
     
+    # التعرف على اسم عمود المعرف ديناميكياً
     id_col = None
     for col in df.columns:
         if 'specimen' in col.lower() or 'id' in col.lower():
@@ -53,28 +61,33 @@ if df is not None:
             st.write("تفاصيل العينة المحددة:")
             st.dataframe(matched_row, use_container_width=True)
             
-            # البحث عن أعمدة الصور في جدول الـ CSV
-            image_cols = [c for c in df.columns if 'image' in c.lower() or 'photo' in c.lower() or 'img' in c.lower()]
-            displayed = False
+            # البحث عن أعمدة الصور في جدول الـ CSV (مثل Field_Image, Cap_Detail, Spore_Microscope_Image)
+            image_cols = [c for c in df.columns if any(term in c.lower() for term in ['image', 'photo', 'img', 'cap', 'spore'])]
             
-            if image_cols:
-                cols = st.columns(len(image_cols) if len(image_cols) <= 3 else 3)
-                for i, col_name in enumerate(image_cols):
-                    img_name = str(matched_row[col_name].values[0]).strip()
-                    if img_name and img_name.lower() not in ['nan', 'none', '']:
-                        # التحقق من وجود الصورة في المجلد الرئيسي أو مجلد images
-                        img_path = None
-                        if os.path.exists(img_name):
-                            img_path = img_name
-                        elif os.path.exists(os.path.join("images", img_name)):
-                            img_path = os.path.join("images", img_name)
-                            
-                        if img_path:
-                            with cols[i % len(cols)]:
-                                st.image(img_path, caption=f"{col_name}: {img_name}", use_container_width=True)
-                                displayed = True
-                                
-            if not displayed:
-                st.info("💡 ملاحظة: لعرض الصور، تأكدي من رفع ملفات الصور إلى المستودع وأن أسماءها مسجلة في أعمدة الصور بملف الـ CSV أو تحتوي على رقم المعرف.")
+            displayed_images = []
+            for col_name in image_cols:
+                val = str(matched_row[col_name].values[0]).strip()
+                if val and val.lower() not in ['nan', 'none', 'n/a', '']:
+                    if val.lower().endswith(('.jpg', '.jpeg', '.png')):
+                        displayed_images.append((col_name, val))
+            
+            if displayed_images:
+                st.write("الصور المرتبطة بهذه العينة:")
+                cols = st.columns(len(displayed_images) if len(displayed_images) <= 3 else 3)
+                for idx, (col_type, img_filename) in enumerate(displayed_images):
+                    # البحث عن الصورة في المجلد الرئيسي أو داخل مجلد images
+                    img_path = None
+                    if os.path.exists(img_filename):
+                        img_path = img_filename
+                    elif os.path.exists(os.path.join("images", img_filename)):
+                        img_path = os.path.join("images", img_filename)
+                        
+                    if img_path:
+                        with cols[idx % len(cols)]:
+                            st.image(img_path, caption=f"نوع الصورة: {col_type}", use_container_width=True)
+                    else:
+                        cols[idx % len(cols)].warning(f"⚠️ الصورة `{img_filename}` مسجلة في الجدول لكن تأكدي من رفعها لمستودع قيت هاب.")
+            else:
+                st.warning("⚠️ لا توجد أسماء صور مسجلة في أعمدة جدول البيانات لهذه العينة.")
 else:
-    st.error("لم يتم العثور على ملف البيانات `macrofungi_database_template.csv`.")
+    st.error("لم يتم العثور على ملف البيانات `macrofungi_database_template.csv` في المستودع.")
