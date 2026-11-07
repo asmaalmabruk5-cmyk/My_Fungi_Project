@@ -72,7 +72,19 @@ def load_data():
             return pd.read_csv(csv_file, encoding='utf-8-sig')
         except:
             return pd.read_csv(csv_file, encoding='cp1256')
+    return None@st.cache_data
+def load_data():
+    csv_file = "macrofungi_database_template.csv"
+    if os.path.exists(csv_file):
+        # تجربة الترميزات الخاصة باللغة العربية في ويندوز
+        for enc in ['cp1256', 'ansi', 'iso-8859-6', 'utf-8']:
+            try:
+                df = pd.read_csv(csv_file, encoding=enc)
+                return df
+            except:
+                continue
     return None
+    
 
 
                     
