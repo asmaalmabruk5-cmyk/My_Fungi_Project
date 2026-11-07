@@ -62,6 +62,20 @@ if df is not None:
             st.write("الصور المتاحة في المستودع لهذه العينة:")
             for img in found_images:
                 if any(part.lower() in img.lower() for part in str(selected_specimen).split("-")):
+
+@st.cache_data
+def load_data():
+    csv_file = "macrofungi_database_template.csv"
+    if os.path.exists(csv_file):
+        # استخدام ترميز utf-8-sig المخصص لملفات الإكسل والمحفوظة كـ CSV لعرض العربية بوضوح
+        try:
+            return pd.read_csv(csv_file, encoding='utf-8-sig')
+        except:
+            return pd.read_csv(csv_file, encoding='cp1256')
+    return None
+
+
+                    
                     st.image(img, caption=img, width=300)
 
 else:
